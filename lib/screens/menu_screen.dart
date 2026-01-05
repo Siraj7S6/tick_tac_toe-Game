@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../utils/constants.dart';
+import 'package:flutter/services.dart';
 import 'game_screen.dart';
+import '../logic/game_controller.dart';
+import '../utils/constants.dart';
+import '../widgets/menu_button.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -15,37 +17,37 @@ class MenuScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              "Ultimate\nTic Tac Toe",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.russoOne(fontSize: 48, color: Colors.white),
+            const Text("TIC TAC TOE", style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 50),
+            MenuButton(
+              text: "Local PVP",
+              onPressed: () => _launchGame(context, GameMode.pvp),
             ),
-            const SizedBox(height: 60),
-            _menuButton(context, "PLAY OFFLINE", Icons.play_arrow, () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const GameScreen()));
-            }),
-            const SizedBox(height: 20),
-            _menuButton(context, "EXIT", Icons.exit_to_app, () {
-              // Note: SystemNavigator.pop() or similar for actual exit
-            }),
+            const SizedBox(height: 15),
+            MenuButton(
+              text: "Easy AI",
+              onPressed: () => _launchGame(context, GameMode.easy),
+            ),
+            const SizedBox(height: 15),
+            MenuButton(
+              text: "Impossible AI",
+              onPressed: () => _launchGame(context, GameMode.impossible),
+            ),
+            const SizedBox(height: 15),
+            MenuButton(
+              text: "Exit",
+              onPressed: () => SystemNavigator.pop(),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _menuButton(BuildContext context, String label, IconData icon, VoidCallback onTap) {
-    return ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.primaryBg,
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        elevation: 10,
-      ),
-      onPressed: onTap,
-      icon: Icon(icon),
-      label: Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18)),
+  void _launchGame(BuildContext context, GameMode mode) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => GameScreen(mode: mode)),
     );
   }
 }
