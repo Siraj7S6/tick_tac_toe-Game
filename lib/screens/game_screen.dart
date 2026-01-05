@@ -7,6 +7,7 @@ import '../logic/game_controller.dart';
 import '../utils/constants.dart';
 import '../widgets/game_cell.dart';
 import '../widgets/score_board.dart';
+import '../widgets/winning_line_painter.dart';
 
 class GameScreen extends StatefulWidget {
   final GameMode mode;
@@ -16,30 +17,54 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+// FIXED: Added SingleTickerProviderStateMixin to provide the 'vsync' for animations
+class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateMixin {
   late final GameController _controller;
   final AudioPlayer _audioPlayer = AudioPlayer();
   late ConfettiController _confettiController;
+
+  // Animation variables for the winning line
+  late AnimationController _lineAnimationController;
+  late Animation<double> _lineAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = GameController(mode: widget.mode);
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+
+    // Initialize the line animation controller
+    _lineAnimationController = AnimationController(
+      vsync: this, // This now works because of the mixin above
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _lineAnimation = CurvedAnimation(
+      parent: _lineAnimationController,
+      curve: Curves.easeInOut,
+    );
+
     _controller.addListener(_gameListener);
   }
 
   void _gameListener() {
     final state = _controller.value;
+
     if (state.lastEvent == GameEvent.move) {
       HapticFeedback.lightImpact();
       _audioPlayer.play(AssetSource('sounds/Move.mp3'));
-    } else if (state.lastEvent == GameEvent.win) {
+    }
+    else if (state.lastEvent == GameEvent.win) {
       HapticFeedback.vibrate();
       _confettiController.play();
       _audioPlayer.play(AssetSource('sounds/WinGame.mp3'));
+
+      // Start the animated line drawing
+      _lineAnimationController.forward(from: 0.0);
+
       _showResultDialog(state.winner);
-    } else if (state.lastEvent == GameEvent.draw) {
+    }
+    else if (state.lastEvent == GameEvent.draw) {
       HapticFeedback.mediumImpact();
       _audioPlayer.play(AssetSource('sounds/DrawGame.mp3'));
       _showResultDialog(null);
@@ -52,12 +77,31 @@ class _GameScreenState extends State<GameScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.primaryBg,
-        title: Text(winner == null ? "Draw!" : "Player $winner Wins!",
-            textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
-        actions: [Center(child: TextButton(onPressed: () {
-          _controller.resetMatch();
-          Navigator.pop(context);
-        }, child: const Text("Play Again")))],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          winner == null ? "It's a Draw!" : "Player $winner Wins!",
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          Center(
+            child: TextButton(
+              onPressed: () {
+                _controller.resetMatch();
+                _lineAnimationController.reset(); // Clear the line for next round
+                Navigator.pop(context);
+              },
+              child: Text(
+                "Play Again",
+                style: GoogleFonts.poppins(
+                  color: AppColors.accentBg,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          )
+        ],
       ),
     );
   }
@@ -68,6 +112,7 @@ class _GameScreenState extends State<GameScreen> {
     _controller.dispose();
     _audioPlayer.dispose();
     _confettiController.dispose();
+    _lineAnimationController.dispose(); // Clean up animation controller
     super.dispose();
   }
 
@@ -82,22 +127,26 @@ class _GameScreenState extends State<GameScreen> {
               return Container(
                 decoration: const BoxDecoration(gradient: AppColors.mainGradient),
                 child: SafeArea(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _buildHeader(),
-                        ScoreBoard(scoreX: state.scoreX, scoreO: state.scoreO, isXTurn: state.isXTurn),
-                        const SizedBox(height: 40),
-                        _buildGrid(state),
-                        const SizedBox(height: 40),
-                        _buildTurnIndicator(state),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      _buildHeader(),
+                      ScoreBoard(
+                        scoreX: state.scoreX,
+                        scoreO: state.scoreO,
+                        isXTurn: state.isXTurn,
+                      ),
+                      const Spacer(),
+                      _buildGrid(state),
+                      const Spacer(),
+                      _buildTurnIndicator(state),
+                      const SizedBox(height: 30),
+                    ],
                   ),
                 ),
               );
             },
           ),
+
           Align(
             alignment: Alignment.topCenter,
             child: ConfettiWidget(
@@ -117,10 +166,27 @@ class _GameScreenState extends State<GameScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.white), onPressed: () => Navigator.pop(context)),
-          Text(widget.mode == GameMode.pvp ? "Local PVP" : widget.mode == GameMode.easy ? "Easy AI" : "Impossible AI",
-              style: const TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold)),
-          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: () => _controller.resetScores()),
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          Text(
+            widget.mode == GameMode.pvp ? "LOCAL PVP" :
+            widget.mode == GameMode.easy ? "EASY AI" : "IMPOSSIBLE",
+            style: GoogleFonts.poppins(
+              color: Colors.white70,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white, size: 28),
+            onPressed: () {
+              _controller.resetScores();
+              _lineAnimationController.reset();
+            },
+          ),
         ],
       ),
     );
@@ -128,19 +194,45 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildGrid(GameState state) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 30),
       child: AspectRatio(
         aspectRatio: 1,
-        child: GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10),
-          itemCount: 9,
-          itemBuilder: (context, index) => GameCell(
-            value: state.board[index],
-            isWinningCell: state.winningLine?.contains(index) ?? false,
-            onTap: () => _controller.makeMove(index),
-          ),
+        child: Stack(
+          children: [
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: 9,
+              itemBuilder: (context, index) => GameCell(
+                value: state.board[index],
+                isWinningCell: false, // We use the painter line now instead
+                onTap: () => _controller.makeMove(index),
+              ),
+            ),
+
+            // The Winning Line Layer
+            if (state.winner != null && state.winningLine != null)
+              IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _lineAnimation,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      size: Size.infinite,
+                      painter: WinningLinePainter(
+                        winningLine: state.winningLine!,
+                        progress: _lineAnimation.value,
+                        color: Colors.white,
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -153,8 +245,14 @@ class _GameScreenState extends State<GameScreen> {
         color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(state.isXTurn ? "Your Turn (X)" : "Opponent (O)",
-          style: const TextStyle(color: Colors.white, fontSize: 20)),
+      child: Text(
+        state.isXTurn ? "Your Turn (X)" : "Opponent (O)",
+        style: GoogleFonts.poppins(
+          fontSize: 20,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
