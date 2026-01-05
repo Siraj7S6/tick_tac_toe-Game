@@ -63,14 +63,20 @@ class GameController extends ValueNotifier<GameState> {
     return available[Random().nextInt(available.length)];
   }
 
+  // --- PERFECT AI LOGIC ---
+
   int _getBestMove() {
     int bestScore = -1000;
     int move = -1;
+
+    // AI explores every empty spot to find the absolute best starting point
     for (int i = 0; i < 9; i++) {
       if (value.board[i] == "") {
-        value.board[i] = "O";
+        value.board[i] = "O"; // Simulate AI move
+        // Start minimax with depth 0
         int score = _minimax(value.board, 0, false);
-        value.board[i] = "";
+        value.board[i] = ""; // Undo move
+
         if (score > bestScore) {
           bestScore = score;
           move = i;
@@ -82,8 +88,14 @@ class GameController extends ValueNotifier<GameState> {
 
   int _minimax(List<String> board, int depth, bool isMaximizing) {
     String? result = _checkWinner(board);
+
+    // If AI wins, score is high. Subtract depth so it prefers FASTER wins.
     if (result == "O") return 10 - depth;
+
+    // If Human wins, score is low. Add depth so AI prefers LONGER survival.
     if (result == "X") return depth - 10;
+
+    // If no winner and board is full, it's a draw.
     if (!board.contains("")) return 0;
 
     if (isMaximizing) {
@@ -91,6 +103,7 @@ class GameController extends ValueNotifier<GameState> {
       for (int i = 0; i < 9; i++) {
         if (board[i] == "") {
           board[i] = "O";
+          // Recursive call for the opponent (Human)
           int score = _minimax(board, depth + 1, false);
           board[i] = "";
           bestScore = max(score, bestScore);
@@ -102,6 +115,7 @@ class GameController extends ValueNotifier<GameState> {
       for (int i = 0; i < 9; i++) {
         if (board[i] == "") {
           board[i] = "X";
+          // Recursive call for the opponent (AI)
           int score = _minimax(board, depth + 1, true);
           board[i] = "";
           bestScore = min(score, bestScore);
