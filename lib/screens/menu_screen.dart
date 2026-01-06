@@ -39,6 +39,16 @@ class MenuScreen extends StatelessWidget {
               text: "Exit",
               onPressed: () => SystemNavigator.pop(),
             ),
+            MenuButton(
+              text: "Online Multiplayer",
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const OnlineLobby()),
+                );
+              },
+            ),
+            const SizedBox(height: 15), // Match the spacing of your other buttons
           ],
         ),
       ),

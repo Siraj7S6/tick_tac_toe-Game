@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+// 1. IMPORT the new generated options file
+import 'firebase_options.dart'; 
 import 'screens/splash_screen.dart';
 
 void main() async {
-  // 1. Mandatory initialization for async main
+  // 2. Mandatory for async main
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 2. Lock orientation
+  
+  // 3. Lock orientation to portrait
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // 3. Initialize Firebase with a safety catch
+  // 4. Initialize Firebase using the CLI-generated options
   try {
-    // We add a timeout of 10 seconds. If it hangs longer, it will throw an error
-    // instead of staying on a white screen forever.
-    await Firebase.initializeApp().timeout(const Duration(seconds: 10));
-    debugPrint("Firebase initialized successfully");
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint("Firebase initialized successfully with CLI options");
   } catch (e) {
-    debugPrint("FIREBASE ERROR: $e");
-    // The app will still run, but online features won't work until fixed.
+    debugPrint("FIREBASE INITIALIZATION ERROR: $e");
   }
 
   runApp(const TicTacToeApp());

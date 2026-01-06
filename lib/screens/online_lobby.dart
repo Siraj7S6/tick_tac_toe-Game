@@ -14,31 +14,98 @@ class OnlineLobby extends StatefulWidget {
 
 class _OnlineLobbyState extends State<OnlineLobby> {
   final TextEditingController _codeController = TextEditingController();
+  bool _isCreating = false;
 
-  // Generates a 6-digit code and creates a room in Firebase
-  void _createRoom() {
+  // 1. FORCED DATABASE REFERENCE (Fixes the "Null" Database URL issue on Web)
+  final DatabaseReference _dbRef = FirebaseDatabase.instanceFor(
+    app: FirebaseDatabase.instance.app,
+    databaseURL: 'https://ticktacktoe-282aa-default-rtdb.firebaseio.com/',
+  ).ref("rooms");
+
+  // Logic to Create a Room
+  void _createRoom() async {
+    setState(() => _isCreating = true);
     String code = (Random().nextInt(899999) + 100000).toString();
 
-    FirebaseDatabase.instance.ref("rooms/$code").set({
-      'board': List.filled(9, ""),
-      'isXTurn': true,
-      'winner': null,
-      'winningLine': null,
-      'createdAt': ServerValue.timestamp,
-    });
+    try {
+      // 2. Initializing Room Data
+      await _dbRef.child(code).set({
+        'board': List.filled(9, ""),
+        'isXTurn': true,
+        'winner': null,
+        'player1Joined': true,
+        'player2Joined': false, // This will be the trigger for the host
+        'createdAt': ServerValue.timestamp,
+      });
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OnlineGameScreen(roomCode: code, mySymbol: "X"),
-      ),
-    );
+      // 3. START LISTENING: The Host waits for Player 2 to join
+      _listenForOpponent(code);
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.primaryBg,
+          title: const Text("Room Created!", style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Share this code with your friend:", style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 20),
+              Text(code, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 10),
+              const Text("Waiting for opponent...", style: TextStyle(fontSize: 14, color: Colors.white38)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            )
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint("Error creating room: $e");
+      setState(() => _isCreating = false);
+    }
   }
 
-  void _joinRoom() {
+  // 4. LISTENER: Tells the Host when the Opponent joins
+  void _listenForOpponent(String code) {
+    _dbRef.child(code).onValue.listen((event) {
+      if (event.snapshot.exists) {
+        final data = event.snapshot.value as Map;
+        if (data['player2Joined'] == true) {
+          // If Player 2 joins, close the dialog and start the game
+          if (Navigator.canPop(context)) Navigator.pop(context);
+          
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OnlineGameScreen(roomCode: code, mySymbol: "X"),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  // Logic to Join a Room
+  void _joinRoom() async {
     String code = _codeController.text.trim();
-    if (code.length == 6) {
-      Navigator.push(
+    if (code.length != 6) return;
+
+    final snapshot = await _dbRef.child(code).get();
+    if (snapshot.exists) {
+      // 5. UPDATE: Inform the database that Player 2 has entered
+      await _dbRef.child(code).update({'player2Joined': true});
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => OnlineGameScreen(roomCode: code, mySymbol: "O"),
@@ -46,7 +113,7 @@ class _OnlineLobbyState extends State<OnlineLobby> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter a valid 6-digit code")),
+        const SnackBar(content: Text("Room not found! Check the code.")),
       );
     }
   }
@@ -54,44 +121,28 @@ class _OnlineLobbyState extends State<OnlineLobby> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(gradient: AppColors.mainGradient),
+      backgroundColor: AppColors.primaryBg,
+      appBar: AppBar(title: const Text("Online Lobby"), backgroundColor: Colors.transparent),
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text("ONLINE PLAY", style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 40),
-
-            // Create Room Button
-            _lobbyButton("CREATE ROOM", _createRoom, Colors.greenAccent),
-
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 30),
-              child: Text("OR", style: TextStyle(color: Colors.white54)),
-            ),
-
-            // Join Room Section
+            _lobbyButton(_isCreating ? "CREATING..." : "CREATE ROOM", _createRoom, Colors.blue),
+            const SizedBox(height: 30),
+            const Text("OR", style: TextStyle(color: Colors.white38)),
+            const SizedBox(height: 30),
             Container(
               width: 250,
               padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(15),
-              ),
+              decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)),
               child: TextField(
                 controller: _codeController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white, fontSize: 20),
-                decoration: const InputDecoration(
-                  hintText: "Enter 6-digit code",
-                  hintStyle: TextStyle(color: Colors.white38),
-                  border: InputBorder.none,
-                ),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(hintText: "Enter 6-digit code", border: InputBorder.none),
               ),
             ),
             const SizedBox(height: 20),
-            _lobbyButton("JOIN ROOM", _joinRoom, AppColors.accentBg),
+            _lobbyButton("JOIN ROOM", _joinRoom, Colors.green),
           ],
         ),
       ),
@@ -103,13 +154,9 @@ class _OnlineLobbyState extends State<OnlineLobby> {
       width: 250,
       height: 55,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color.withOpacity(0.2),
-          side: BorderSide(color: color),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        ),
+        style: ElevatedButton.styleFrom(backgroundColor: color),
         onPressed: onPressed,
-        child: Text(text, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+        child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
