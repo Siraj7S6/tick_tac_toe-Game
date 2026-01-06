@@ -39,6 +39,8 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           child: ValueListenableBuilder<OnlineState>(
             valueListenable: _controller,
             builder: (context, state, _) {
+              // 1. DYNAMIC TURN CALCULATION
+              // Updates automatically when the controller resets the isXTurn flag
               bool isMyTurn = (state.isXTurn && widget.mySymbol == "X") ||
                   (!state.isXTurn && widget.mySymbol == "O");
 
@@ -47,7 +49,10 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                   _buildHeader(),
                   const SizedBox(height: 20),
                   Text(
-                    isMyTurn ? "YOUR TURN (${widget.mySymbol})" : "WAITING FOR OPPONENT...",
+                    // Only show turn info if the game is still active
+                    state.winner == null 
+                      ? (isMyTurn ? "YOUR TURN (${widget.mySymbol})" : "WAITING FOR OPPONENT...")
+                      : "GAME OVER",
                     style: GoogleFonts.poppins(
                         color: isMyTurn ? Colors.greenAccent : Colors.white70,
                         fontSize: 20,
@@ -55,8 +60,9 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                     ),
                   ),
                   const Spacer(),
-                  _buildGrid(state),
+                  _buildGrid(state, isMyTurn),
                   const Spacer(),
+                  // 2. UPDATED RESULT UI
                   if (state.winner != null) _buildResult(state.winner!),
                   const SizedBox(height: 50),
                 ],
@@ -86,7 +92,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     );
   }
 
-  Widget _buildGrid(OnlineState state) {
+  Widget _buildGrid(OnlineState state, bool isMyTurn) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 30),
       child: AspectRatio(
@@ -99,7 +105,10 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           itemCount: 9,
           itemBuilder: (context, index) => GameCell(
             value: state.board[index],
-            onTap: () => _controller.makeMove(index),
+            // Only allow taps if it's the player's turn and game isn't over
+            onTap: (isMyTurn && state.winner == null) 
+                ? () => _controller.makeMove(index) 
+                : () {},
           ),
         ),
       ),
@@ -109,10 +118,41 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   Widget _buildResult(String winner) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
-      child: Text(
-        winner == "Draw" ? "IT'S A DRAW!" : "PLAYER $winner WINS!",
-        style: GoogleFonts.poppins(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white10, 
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24)
+      ),
+      child: Column(
+        children: [
+          Text(
+            winner == "Draw" ? "IT'S A DRAW!" : "PLAYER $winner WINS!",
+            style: GoogleFonts.poppins(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 3. PLAY AGAIN BUTTON
+              // This calls the resetGame function we added to the controller
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.greenAccent.withOpacity(0.8),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                onPressed: () => _controller.resetGame(),
+                child: const Text("PLAY AGAIN", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 15),
+              // EXIT BUTTON
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("EXIT", style: TextStyle(color: Colors.white70)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

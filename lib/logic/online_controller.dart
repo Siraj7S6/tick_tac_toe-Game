@@ -16,6 +16,20 @@ class OnlineController extends ValueNotifier<OnlineState> {
     _initRoomListener();
   }
 
+  void resetGame() async {
+  try {
+    // Resetting the room data to its initial state
+    await _dbRef.update({
+      'board': List.filled(9, ""),
+      'isXTurn': true,
+      'winner': null,
+      'winningLine': null,
+    });
+  } catch (e) {
+    debugPrint("RESET ERROR: $e");
+  }
+}
+
   // This function "listens" to the internet.
   // If the other player moves, your screen updates automatically.
   void _initRoomListener() {
