@@ -7,7 +7,11 @@ class OnlineController extends ValueNotifier<OnlineState> {
   final DatabaseReference _dbRef;
 
   OnlineController({required this.roomCode, required this.mySymbol})
-      : _dbRef = FirebaseDatabase.instance.ref("rooms/$roomCode"),
+      : // ADDED: Explicit URL for Web support
+        _dbRef = FirebaseDatabase.instanceFor(
+          app: FirebaseDatabase.instance.app,
+          databaseURL: 'https://ticktacktoe-282aa-default-rtdb.firebaseio.com/',
+        ).ref("rooms/$roomCode"),
         super(OnlineState.initial()) {
     _initRoomListener();
   }
@@ -18,6 +22,7 @@ class OnlineController extends ValueNotifier<OnlineState> {
     _dbRef.onValue.listen((event) {
       if (event.snapshot.value == null) return;
 
+      // Improved Map parsing for web stability
       final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
       value = OnlineState(
@@ -31,7 +36,7 @@ class OnlineController extends ValueNotifier<OnlineState> {
     });
   }
 
-  void makeMove(int index) {
+  void makeMove(int index) async {
     // 1. Check if it's actually your turn
     bool isMyTurn = (value.isXTurn && mySymbol == "X") || (!value.isXTurn && mySymbol == "O");
 
@@ -44,14 +49,23 @@ class OnlineController extends ValueNotifier<OnlineState> {
     // Calculate if this move won the game
     String? winner = _calculateWinner(newBoard);
     List<int>? line = _getWinningLine(newBoard);
+    
+    // Check for a Draw (if board is full and no winner)
+    if (winner == null && !newBoard.contains("")) {
+      winner = "Draw";
+    }
 
-    // 3. Push the update to the Cloud
-    _dbRef.update({
-      'board': newBoard,
-      'isXTurn': !value.isXTurn,
-      'winner': winner,
-      'winningLine': line,
-    });
+    try {
+      // 3. Push the update to the Cloud
+      await _dbRef.update({
+        'board': newBoard,
+        'isXTurn': !value.isXTurn,
+        'winner': winner,
+        'winningLine': line,
+      });
+    } catch (e) {
+      debugPrint("MOVE ERROR: $e");
+    }
   }
 
   String? _calculateWinner(List<String> b) {
