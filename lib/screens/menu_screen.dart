@@ -4,6 +4,7 @@ import 'game_screen.dart';
 import '../logic/game_controller.dart';
 import '../utils/constants.dart';
 import '../widgets/menu_button.dart';
+import 'online_lobby.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
