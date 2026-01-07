@@ -18,27 +18,38 @@ class MenuScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("TIC TAC TOE", style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
+            const Text(
+              "TIC TAC TOE", 
+              style: TextStyle(
+                color: Colors.white, 
+                fontSize: 40, 
+                fontWeight: FontWeight.bold
+              )
+            ),
             const SizedBox(height: 50),
+            
+            // 1. Local PVP
             MenuButton(
               text: "Local PVP",
               onPressed: () => _launchGame(context, GameMode.pvp),
             ),
             const SizedBox(height: 15),
+
+            // 2. Easy AI
             MenuButton(
               text: "Easy AI",
               onPressed: () => _launchGame(context, GameMode.easy),
             ),
             const SizedBox(height: 15),
+
+            // 3. Impossible AI
             MenuButton(
               text: "Impossible AI",
               onPressed: () => _launchGame(context, GameMode.impossible),
             ),
             const SizedBox(height: 15),
-            MenuButton(
-              text: "Exit",
-              onPressed: () => SystemNavigator.pop(),
-            ),
+
+            // 4. Online Multiplayer (Moved above Exit for better flow)
             MenuButton(
               text: "Online Multiplayer",
               onPressed: () {
@@ -48,7 +59,13 @@ class MenuScreen extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 15), // Match the spacing of your other buttons
+            const SizedBox(height: 15), // Added missing spacing here
+
+            // 5. Exit (Usually the last option in a menu)
+            MenuButton(
+              text: "Exit",
+              onPressed: () => SystemNavigator.pop(),
+            ),
           ],
         ),
       ),
