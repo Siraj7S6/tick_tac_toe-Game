@@ -20,7 +20,6 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize the online controller with room code and symbol
     _controller = OnlineController(roomCode: widget.roomCode, mySymbol: widget.mySymbol);
   }
 
@@ -39,8 +38,6 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           child: ValueListenableBuilder<OnlineState>(
             valueListenable: _controller,
             builder: (context, state, _) {
-              // 1. DYNAMIC TURN CALCULATION
-              // Updates automatically when the controller resets the isXTurn flag
               bool isMyTurn = (state.isXTurn && widget.mySymbol == "X") ||
                   (!state.isXTurn && widget.mySymbol == "O");
 
@@ -49,7 +46,6 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                   _buildHeader(),
                   const SizedBox(height: 20),
                   Text(
-                    // Only show turn info if the game is still active
                     state.winner == null 
                       ? (isMyTurn ? "YOUR TURN (${widget.mySymbol})" : "WAITING FOR OPPONENT...")
                       : "GAME OVER",
@@ -60,9 +56,9 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                     ),
                   ),
                   const Spacer(),
+                  // PASSING STATE TO THE GRID
                   _buildGrid(state, isMyTurn),
                   const Spacer(),
-                  // 2. UPDATED RESULT UI
                   if (state.winner != null) _buildResult(state.winner!),
                   const SizedBox(height: 50),
                 ],
@@ -103,13 +99,19 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10),
           itemCount: 9,
-          itemBuilder: (context, index) => GameCell(
-            value: state.board[index],
-            // Only allow taps if it's the player's turn and game isn't over
-            onTap: (isMyTurn && state.winner == null) 
-                ? () => _controller.makeMove(index) 
-                : () {},
-          ),
+          itemBuilder: (context, index) {
+            // FIX: IDENTIFY IF THIS CELL IS PART OF THE WINNING LINE
+            bool isWinning = state.winningLine != null && state.winningLine!.contains(index);
+
+            return GameCell(
+              value: state.board[index],
+              // PASS THE WINNING STATUS TO TRIGGER THE VISUAL EFFECT
+              isWinningCell: isWinning, 
+              onTap: (isMyTurn && state.winner == null) 
+                  ? () => _controller.makeMove(index) 
+                  : () {},
+            );
+          },
         ),
       ),
     );
@@ -134,8 +136,6 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 3. PLAY AGAIN BUTTON
-              // This calls the resetGame function we added to the controller
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent.withOpacity(0.8),
@@ -145,7 +145,6 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                 child: const Text("PLAY AGAIN", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(width: 15),
-              // EXIT BUTTON
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text("EXIT", style: TextStyle(color: Colors.white70)),

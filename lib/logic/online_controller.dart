@@ -1,5 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // REQUIRED FOR HAPTICS
 import 'package:audioplayers/audioplayers.dart'; 
 
 class OnlineController extends ValueNotifier<OnlineState> {
@@ -49,21 +50,24 @@ class OnlineController extends ValueNotifier<OnlineState> {
       final data = Map<String, dynamic>.from(event.snapshot.value as Map);
       List<String> newBoard = List<String>.from(data['board']);
       String? serverWinner = data['winner'];
-
-      // 1. Play Move.mp3 if the board changed
+      
+      // 1. Play Move.mp3 and trigger Haptics if the board changed
       if (newBoard.join() != value.board.join()) {
         _playSound('Move.mp3');
+        HapticFeedback.lightImpact(); // LIGHT VIBRATION ON MOVE
       }
 
-      // 2. Play WinGame.mp3 or DrawGame.mp3 when the game ends
+      // 2. Play Win/Draw sounds and trigger heavy haptics on Win
       if (serverWinner != null && value.winner == null) {
         if (serverWinner == "Draw") {
           _playSound('DrawGame.mp3');
         } else {
           _playSound('WinGame.mp3');
+          HapticFeedback.heavyImpact(); // STRONG VIBRATION ON WIN
         }
       }
 
+      // 3. Update the state including the winningLine from Firebase
       value = OnlineState(
         board: newBoard,
         isXTurn: data['isXTurn'] ?? true,
@@ -91,6 +95,7 @@ class OnlineController extends ValueNotifier<OnlineState> {
     }
 
     try {
+      // 4. Update the room in Firebase with the new board and result
       await _dbRef.update({
         'board': newBoard,
         'isXTurn': !value.isXTurn,
@@ -125,7 +130,6 @@ class OnlineController extends ValueNotifier<OnlineState> {
   }
 }
 
-// THIS WAS LIKELY MISSING: The State class definition
 class OnlineState {
   final List<String> board;
   final bool isXTurn;

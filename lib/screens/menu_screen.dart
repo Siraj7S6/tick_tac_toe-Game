@@ -51,7 +51,7 @@ class MenuScreen extends StatelessWidget {
 
             // 4. Online Multiplayer (Moved above Exit for better flow)
             MenuButton(
-              text: "Online Multiplayer",
+              text: "Room",
               onPressed: () {
                 Navigator.push(
                   context,
